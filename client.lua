@@ -1,5 +1,7 @@
+-- client.lua
 local menuOpen = false
 local mapOpen = false
+local settingsOpen = false
 local disableThreadRunning = false
 local lastMenuToggle = 0
 local MENU_TOGGLE_COOLDOWN = 500
@@ -29,8 +31,7 @@ local function SafeDisableControls()
 end
 
 function OpenPauseMenu()
-    if menuOpen or mapOpen then return end
-    if not CanToggleMenu() then return end
+    if menuOpen or mapOpen or settingsOpen or not CanToggleMenu() then return end
     
     menuOpen = true
     
@@ -46,8 +47,7 @@ function OpenPauseMenu()
 end
 
 function ClosePauseMenu()
-    if not menuOpen then return end
-    if not CanToggleMenu() then return end
+    if not menuOpen or not CanToggleMenu() then return end
     
     menuOpen = false
     
@@ -83,21 +83,68 @@ RegisterNUICallback('map', function(_, cb)
     SetNuiFocus(false, false)
     SendNUIMessage({ action = "close" })
     
-    Wait(150)
+    Wait(100)
     
     mapOpen = true
+    
     ActivateFrontendMenu(GetHashKey("FE_MENU_VERSION_MP_PAUSE"), false, -1)
     
     CreateThread(function()
-        while mapOpen do
-            Wait(100)
+        local checkCount = 0
+        
+        while mapOpen and checkCount < 100 do
+            Wait(50)
+            checkCount = checkCount + 1
+            
             if not IsPauseMenuActive() then
                 mapOpen = false
                 TriggerScreenblurFadeOut(500)
-                Wait(150)
-                OpenPauseMenu()
                 break
             end
+        end
+        
+        if checkCount >= 100 then
+            mapOpen = false
+            TriggerScreenblurFadeOut(500)
+        end
+    end)
+    
+    cb('ok')
+end)
+
+RegisterNUICallback('settings', function(_, cb)
+    if not menuOpen then
+        cb('ok')
+        return
+    end
+    
+    menuOpen = false
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = "close" })
+    
+    Wait(100)
+    
+    settingsOpen = true
+    
+    ActivateFrontendMenu(GetHashKey("FE_MENU_VERSION_LANDING_MENU"), false, -1)
+    
+    CreateThread(function()
+        local checkCount = 0
+        
+        while settingsOpen and checkCount < 200 do
+            Wait(50)
+            checkCount = checkCount + 1
+            
+            if not IsPauseMenuActive() then
+                settingsOpen = false
+                TriggerScreenblurFadeOut(500)
+                break
+            end
+        end
+        
+        if checkCount >= 200 then
+            settingsOpen = false
+            TriggerScreenblurFadeOut(500)
         end
     end)
     
@@ -123,19 +170,18 @@ RegisterCommand('pausemenu', function()
 end, false)
 
 CreateThread(function()
-    local wasPauseActive = false
-    
     while true do
-        Wait(100)
+        Wait(0)
         
-        local isPauseActive = IsPauseMenuActive()
-        
-        if isPauseActive and not wasPauseActive and not menuOpen and not mapOpen then
-            SetFrontendActive(false)
+        if not menuOpen and not mapOpen and not settingsOpen then
+            DisableControlAction(0, 200, true)
+            DisableControlAction(0, 199, true)
+            
+            if IsDisabledControlJustPressed(0, 200) or IsDisabledControlJustPressed(0, 199) then
+                OpenPauseMenu()
+            end
+        else
             Wait(100)
-            OpenPauseMenu()
         end
-        
-        wasPauseActive = isPauseActive
     end
 end)
