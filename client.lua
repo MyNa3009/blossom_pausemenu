@@ -1,4 +1,3 @@
--- client.lua
 local menuOpen = false
 local mapOpen = false
 local settingsOpen = false
@@ -32,6 +31,9 @@ end
 
 function OpenPauseMenu()
     if menuOpen or mapOpen or settingsOpen or not CanToggleMenu() then return end
+    
+    -- Check nur beim Öffnen, nicht permanent
+    if IsNuiFocused() or IsEntityDead(PlayerPedId()) then return end
     
     menuOpen = true
     
@@ -171,17 +173,18 @@ end, false)
 
 CreateThread(function()
     while true do
-        Wait(0)
+        Wait(5)
         
         if not menuOpen and not mapOpen and not settingsOpen then
             DisableControlAction(0, 200, true)
             DisableControlAction(0, 199, true)
             
             if IsDisabledControlJustPressed(0, 200) or IsDisabledControlJustPressed(0, 199) then
+                if IsPauseMenuActive() then
+                    SetFrontendActive(false)
+                end
                 OpenPauseMenu()
             end
-        else
-            Wait(100)
         end
     end
 end)
